@@ -9,6 +9,7 @@ import yaml
 import re
 import itertools
 import posixpath
+import subprocess
 import time
 from string import Template
 
@@ -49,6 +50,8 @@ def main():
         else "COMMENT"
     )
     github_api_url = os.environ.get("GITHUB_API_URL")
+
+    print(repo, github_token, len(github_token), review_event, github_api_url)
 
     pull_files_url = "%s/repos/%s/pulls/%s/files" % (
         github_api_url,
@@ -96,6 +99,8 @@ def main():
         files_and_lines_available_for_comments[
             pull_request_file["filename"]
         ] = lines_available_for_comments
+    
+    print(files_and_lines_available_for_comments)
 
     clang_tidy_fixes = dict()
     with open(args.clang_tidy_fixes) as file:
@@ -131,13 +136,13 @@ def main():
         # diagnostic = d["DiagnosticMessage"] if "DiagnosticMessage" in d.keys() else d
         diagnostic["DiagnosticMessage"]["FilePath"] = diagnostic["DiagnosticMessage"][
             "FilePath"
-        ].replace(repository_root, "")
+        ].replace('/__w/abacus-develop/abacus-develop/', "")
         diagnostic["DiagnosticMessage"]["FilePath"] = posixpath.normpath(
             diagnostic["DiagnosticMessage"]["FilePath"]
         )
         for replacement in diagnostic["DiagnosticMessage"]["Replacements"]:
             replacement["FilePath"] = replacement["FilePath"].replace(
-                repository_root, ""
+                '/__w/abacus-develop/abacus-develop/', ""
             )
             replacement["FilePath"] = posixpath.normpath(replacement["FilePath"])
     # Mark duplicates (probably could be done in the previous loop)
@@ -158,6 +163,8 @@ def main():
         if not diagnostic["Duplicate"]
     ]
 
+    print(clang_tidy_fixes["Diagnostics"])
+
     # Remove entries we cannot comment on as the files weren't changed in this pull request
     clang_tidy_fixes["Diagnostics"][:] = [
         diagnostic
@@ -165,6 +172,8 @@ def main():
         if diagnostic["DiagnosticMessage"]["FilePath"]
         in files_and_lines_available_for_comments.keys()
     ]
+
+    print(clang_tidy_fixes["Diagnostics"])
 
     if len(clang_tidy_fixes["Diagnostics"]) == 0:
         print("No warnings found in files changed in this pull request")
